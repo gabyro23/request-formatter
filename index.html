@@ -1,477 +1,359 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Request Formatter & Extractor</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
-
-    <style>
-        :root {
-            --bg-base: #09090b; /* Zinc 950 */
-            --bg-panel: #18181b; /* Zinc 900 */
-            --border-color: rgba(255, 255, 255, 0.08);
-            --accent-glow: rgba(99, 102, 241, 0.4);
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-base); 
-            color: #e4e4e7;
-            /* Patrón de cuadrícula de fondo estilo devtool */
-            background-image: linear-gradient(var(--border-color) 1px, transparent 1px),
-                              linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
-            background-size: 40px 40px;
-            background-position: -1px -1px;
-        }
-        
-        .glass-panel {
-            background: rgba(24, 24, 27, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-color);
-        }
-
-        .editor-container {
-            border-radius: 0.75rem;
-            overflow: hidden;
-            border: 1px solid var(--border-color); 
-            background-color: var(--bg-panel);
-            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
-            transition: border-color 0.3s ease;
-        }
-        
-        .editor-container:focus-within {
-            border-color: rgba(99, 102, 241, 0.5); /* Borde índigo al enfocar */
-        }
-
-        #input-editor, #output-editor {
-            width: 100%;
-            height: 100%;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-
-        /* Sobrescribir estilos de ACE para que se fusione con nuestro diseño */
-        .ace_editor { background-color: transparent !important; }
-        .ace_gutter {
-            background-color: rgba(0, 0, 0, 0.2) !important;
-            color: #52525b !important;
-            border-right: 1px solid var(--border-color);
-        }
-        .ace_scroller { box-shadow: inset 10px 0 10px -10px rgba(0,0,0,0.3); }
-
-        /* Custom Scrollbar Ultra Fino */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
-
-        /* Animaciones para los parámetros */
-        .param-card {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .param-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px -4px rgba(0,0,0,0.5), 0 0 10px 0 var(--accent-glow);
-            border-color: rgba(99, 102, 241, 0.5);
-            background-color: #1f1f22;
-        }
-
-        .btn-glow {
-            transition: all 0.3s ease;
-        }
-        .btn-glow:hover:not(:disabled) {
-            box-shadow: 0 0 20px -5px var(--accent-glow);
-            transform: translateY(-1px);
-        }
-        .btn-glow:active:not(:disabled) {
-            transform: translateY(1px);
-        }
-        
-        /* Ocultar scrollbar horizontal en la lista para limpieza visual */
-        #params-list { overflow-x: hidden; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request Inspector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&family=Inria+Serif:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['"Inria Serif"', 'serif'] },
+    colors: {
+      ink:      '#1B043F',
+      muted:    '#5B5773',
+      line:     '#D3DCF2',
+      canvas:   '#F5F7FC',
+      primary: { DEFAULT: '#FF4F00', hover: '#E04500', soft: '#FFEDE5' },
+      grape:   { DEFAULT: '#611BC5', hover: '#4E139F', soft: '#EFE7FB' },
+      info:    { DEFAULT: '#0066FF', soft: '#E5F0FF' },
+      accent:  '#F971FF',
+      ok:      { DEFAULT: '#0F8A5F', soft: '#E3F4EC' },
+      warn:    { DEFAULT: '#B86E00', soft: '#FFF3DC' },
+      danger:  { DEFAULT: '#D6283B', soft: '#FCE6E8' }
+    }
+  } }
+}
+</script>
 </head>
-<body class="h-screen flex flex-col overflow-hidden selection:bg-indigo-500/30 selection:text-white">
+<body class="bg-canvas text-ink font-sans antialiased min-h-screen">
+  <header class="bg-ink text-white">
+    <div class="h-1 bg-gradient-to-r from-grape to-primary"></div>
+    <div class="h-16 flex items-center justify-between max-w-7xl mx-auto px-6">
+      <div class="flex items-center gap-3">
+        <svg class="h-5 w-auto shrink-0" aria-label="Logo" width="124" height="25" viewBox="0 0 124 25" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTpiYzQzMDJlZi0zZmU2LTRkMzYtYTc0Ni04NGM4NjQ5NTQ1NzgAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaIpoxTjRV8XNINEaXh68lt4AAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo3MDA3NzNkZi00M2MwLTRhMTQtYWE3Ny1mNTcyMjZiMWZlODFscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNowab/SvO4vlQntrIslSkPcgAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggGHwZQySf/J0+fkOWpRu0+0AtvR/NwTrOAUtAj3O5QsikZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaDY2DrbqwH2IENgvyNI/R2UAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRNAAAAAAAAAAAAAAAAAGRoYXNoWCCOmvFlZfulGcxhnQNU375oi907fX/xgIOVqn2j0GCrc2RuYW1lbmp1bWJmIG1hbmlmZXN0amV4Y2x1c2lvbnOBomVzdGFydBigZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOmJjNDMwMmVmLTNmZTYtNGQzNi1hNzQ2LTg0Yzg2NDk1NDU3OC9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjQ2YTA0OTNmLTZmOTctNDA5NS1hY2ZmLThkMmZlNmM2MDM1MHJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCAYfBlDJJ/8nT5+Q5alG7T7QC29H83BOs4BS0CPc7lCyKJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggIvTOoM/8wzrmm8oatuVmJHnZvSlpXwNxvjDogZfxO4GiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggAuBOVoDkjfXXfwQ8a0H3Mr0DtGE93XvKLKvZ6nfW+k50Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQM/ZjZtPVdtw46cl8w1AI/m+3ajKJMSKuj7NYp8G+VfdCikZPMcO121j5g8f/Oxike8ANL3EViRkZyEuK35RjP0=</c2pa:manifest></metadata><path fill-rule="evenodd" clip-rule="evenodd" d="M54.4316 0C53.827 0 53.2579 0.236658 52.8301 0.667884L48.0652 5.4622C47.6374 5.89263 47.4014 6.46442 47.4014 7.07354C47.4014 7.68265 47.6366 8.25445 48.0652 8.68488C48.493 9.11531 49.062 9.35276 49.6666 9.35276C50.2712 9.35276 50.8403 9.1161 51.2681 8.68488L56.033 3.88977C56.4608 3.45934 56.6968 2.88675 56.6968 2.27843C56.6968 1.67011 56.4608 1.09752 56.033 0.66709C55.6052 0.236658 55.037 0 54.4316 0ZM53.22 0.447903C53.1308 0.507465 53.0456 0.574968 52.9651 0.64803C53.0456 0.574174 53.1308 0.507465 53.22 0.447903ZM51.2129 8.62929C51.1355 8.70711 51.0534 8.77859 50.9666 8.84291C51.0526 8.77859 51.1347 8.70711 51.2129 8.62929ZM89.7006 0.357818H65.6762C64.471 0.357818 63.4907 1.34416 63.4907 2.55683C63.4907 3.76951 64.471 4.75585 65.6762 4.75585H74.2708C74.9622 4.78682 75.5044 5.35623 75.5044 6.05191V22.7816C75.525 24.0991 76.6268 24.8861 77.6797 24.8861C78.0767 24.8861 78.6576 24.7765 79.1746 24.2571C79.563 23.8664 79.7832 23.347 79.795 22.8014V6.0535C79.795 5.37052 80.3783 4.7892 81.0958 4.75743H89.7006C90.9058 4.75743 91.8861 3.7703 91.8861 2.55763C91.8861 1.34495 90.9058 0.358612 89.7006 0.358612V0.357818ZM21.4418 4.75791H5.59211L5.59053 4.75871C4.89911 4.78968 4.35687 5.3583 4.35687 6.05477V10.3035L16.5411 10.3019C17.7464 10.3019 18.7267 11.2883 18.7267 12.5009C18.7267 13.7136 17.7464 14.6999 16.5411 14.6999H4.35766V18.9383C4.35766 19.6539 4.93621 20.2368 5.64815 20.2368L21.441 20.2431C22.647 20.2431 23.6273 21.2295 23.6273 22.4422C23.6273 23.6548 22.647 24.6412 21.4418 24.6412H1.45229C0.651163 24.6412 0 23.986 0 23.1799V1.82034C0 1.01506 0.651163 0.35909 1.45229 0.35909H21.4418C22.647 0.35909 23.6273 1.34543 23.6273 2.5581C23.6273 3.77078 22.647 4.75791 21.4418 4.75791ZM105.14 20.236L120.933 20.2423V20.2431C122.139 20.2431 123.119 21.2295 123.119 22.4422C123.119 23.6548 122.139 24.6412 120.934 24.6412H100.944C100.143 24.6412 99.4918 23.986 99.4918 23.1799V1.82034C99.4918 1.01506 100.143 0.35909 100.944 0.35909H120.934C122.139 0.35909 123.119 1.34543 123.119 2.5581C123.119 3.77078 122.139 4.75791 120.934 4.75791H105.084C104.392 4.78889 103.849 5.3575 103.849 6.05398V10.3027L116.034 10.3011C117.239 10.3011 118.219 11.2875 118.219 12.5001C118.219 13.7128 117.239 14.6991 116.034 14.6991H103.849V18.9376C103.849 19.6531 104.428 20.236 105.14 20.236ZM37.2799 16.3152C37.7077 15.8848 38.276 15.6474 38.8814 15.6474C39.4868 15.6474 40.055 15.8848 40.4828 16.3152C40.9098 16.7449 41.1451 17.3175 41.1451 17.9266C41.1451 18.5357 40.9098 19.1083 40.4828 19.5379L35.7179 24.3322C35.2901 24.7635 34.721 25.0001 34.1164 25.0001C33.5118 25.0001 32.9428 24.7627 32.515 24.3322C31.6318 23.4436 31.6318 21.9982 32.515 21.1096L37.2799 16.3152ZM39.9106 15.9849C39.8483 15.9515 39.7835 15.9206 39.7188 15.8936C39.7843 15.9206 39.8483 15.9515 39.9106 15.9849ZM38.0432 15.8936C38.1742 15.8388 38.3107 15.7975 38.4504 15.7697C38.3107 15.7975 38.1742 15.8396 38.0432 15.8936ZM33.1338 24.6864C33.1638 24.7015 33.1938 24.7158 33.2245 24.7301C33.1938 24.7166 33.1638 24.7015 33.1338 24.6864ZM33.601 24.8588C33.5253 24.8405 33.4511 24.8183 33.3785 24.7921C33.4511 24.8183 33.5261 24.8405 33.601 24.8588ZM34.1165 0C34.7218 0 35.2901 0.237452 35.7179 0.667884L35.7187 0.668678L40.4836 5.46299C40.9107 5.89263 41.1459 6.46521 41.1459 7.07433C41.1459 7.68345 40.9107 8.25603 40.4836 8.68567C40.0559 9.1161 39.4868 9.35355 38.8822 9.35355C38.2776 9.35355 37.7085 9.1161 37.2807 8.68567L32.5158 3.89056C32.0872 3.46013 31.852 2.88834 31.852 2.27922C31.852 1.67011 32.0872 1.09832 32.515 0.667884C32.9428 0.237452 33.5111 0 34.1165 0ZM32.571 0.724269C32.6484 0.646442 32.7305 0.574968 32.8173 0.510641C32.7313 0.574968 32.6492 0.646442 32.571 0.724269ZM33.2798 0.246188C33.3777 0.204892 33.4795 0.171537 33.5829 0.14533C33.4795 0.171537 33.3785 0.204892 33.2798 0.246188ZM34.1172 0.0794155C33.9349 0.0794155 33.7558 0.101652 33.5829 0.14533C33.7558 0.101652 33.9341 0.0794155 34.1172 0.0794155ZM37.3368 8.62849C37.4915 8.78494 37.6651 8.91439 37.853 9.01524C37.6659 8.91359 37.4915 8.78414 37.3368 8.62849ZM37.853 9.01524C37.9153 9.0486 37.9792 9.07957 38.0447 9.10657C37.98 9.07957 37.9153 9.0486 37.853 9.01524ZM38.1442 9.14548C38.2113 9.16931 38.2792 9.18996 38.3478 9.20743C38.2792 9.18996 38.2105 9.16931 38.1442 9.14548ZM40.4276 8.62928C40.8537 8.20052 41.0669 7.63739 41.0669 7.07434C41.067 7.63759 40.8539 8.20077 40.4276 8.62928ZM51.2671 16.3132C50.8393 15.8828 50.2702 15.6453 49.6656 15.6453C49.061 15.6453 48.492 15.882 48.0642 16.3124C47.181 17.2011 47.181 18.6464 48.0642 19.5351L52.8291 24.3294C53.2569 24.7598 53.8252 24.9973 54.4306 24.9973C55.036 24.9973 55.6042 24.7606 56.032 24.3294C56.4598 23.899 56.6958 23.3264 56.6958 22.7181C56.6958 22.1098 56.4598 21.5372 56.032 21.1067L51.2671 16.3124V16.3132ZM50.5023 15.8915C50.5678 15.9185 50.6317 15.9495 50.6941 15.9828C50.6317 15.9495 50.567 15.9185 50.5023 15.8915ZM49.1313 15.7915C49.2307 15.7668 49.3318 15.7486 49.4352 15.7382C49.3326 15.7494 49.2307 15.7668 49.1313 15.7915ZM48.3657 16.156C48.2789 16.2203 48.1968 16.2918 48.1194 16.3696C48.1976 16.2918 48.2797 16.2203 48.3657 16.156ZM47.84 16.7143C47.9197 16.5928 48.0129 16.4768 48.1194 16.3696C48.0129 16.4768 47.9197 16.592 47.84 16.7143ZM48.1194 19.4803C48.0129 19.3731 47.9197 19.2579 47.84 19.1356C47.9197 19.2571 48.0129 19.3731 48.1194 19.4803ZM53.4637 24.6939C53.4882 24.7058 53.5134 24.7178 53.5387 24.7297C53.5134 24.7185 53.4882 24.7066 53.4637 24.6939ZM42.2013 12.3454C42.2013 11.0755 43.2282 10.0423 44.4903 10.0423C45.7523 10.0423 46.7792 11.0755 46.7792 12.3454C46.7792 13.6152 45.7523 14.6484 44.4903 14.6484C43.2282 14.6484 42.2013 13.6152 42.2013 12.3454ZM42.3055 12.0078C42.3166 11.934 42.3316 11.8617 42.3497 11.791C42.3316 11.8617 42.3166 11.9348 42.3055 12.0078ZM46.0538 13.9186C46.1036 13.8685 46.1517 13.8153 46.1967 13.7605C46.1517 13.8153 46.1044 13.8685 46.0538 13.9186Z" fill="#FFFFFF"></path></svg>
+        <span class="h-5 w-px bg-white/20"></span>
+        <span class="text-lg font-bold">Request <span class="font-serif italic font-normal">Inspector</span></span>
+      </div>
+      <nav class="flex gap-1 p-1 bg-white/10 rounded-lg">
+        <button class="px-4 py-1.5 text-sm font-medium rounded-md bg-white text-ink">Inspector</button>
+      </nav>
+    </div>
+  </header>
 
-    <!-- Header Glassmorphism -->
-    <header class="flex items-center justify-between p-4 glass-panel border-b-0 shrink-0 z-10 mx-4 mt-4 rounded-2xl shadow-xl">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 border border-white/10">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l8.58-8.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg>
-            </div>
-            <div>
-                <h1 class="text-lg font-bold tracking-tight text-white">
-                    SSP_REQ <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Inspector</span>
-                </h1>
-                <p class="text-[11px] text-zinc-400 font-medium tracking-wide uppercase">Dev Tools</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-2">
-            <span class="relative flex h-3 w-3">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-20"></span>
-              <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-emerald-800"></span>
-            </span>
-            <span class="text-xs text-zinc-400 font-medium">Ready</span>
-        </div>
-    </header>
+  <section class="bg-white border-b border-line">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex flex-col lg:flex-row gap-6 lg:items-center lg:justify-between">
+      <div class="flex flex-col gap-1 max-w-xl">
+        <span class="text-xs font-medium uppercase tracking-wide text-muted">About this tool</span>
+        <p class="text-sm text-ink">Analyzes a raw JSON request, extracts the embedded SSP_REQ payload, and flattens parameters for easy search and copying.</p>
+      </div>
+      <ol class="flex flex-col sm:flex-row gap-4 sm:gap-6">
+        <li class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-grape-soft text-grape text-xs font-bold flex items-center justify-center shrink-0">1</span><span class="text-sm">Paste raw request</span></li>
+        <li class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-grape-soft text-grape text-xs font-bold flex items-center justify-center shrink-0">2</span><span class="text-sm">Process payload</span></li>
+        <li class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-grape-soft text-grape text-xs font-bold flex items-center justify-center shrink-0">3</span><span class="text-sm">Search and copy data</span></li>
+      </ol>
+    </div>
+  </section>
 
-    <main class="flex-1 flex flex-col lg:flex-row min-h-0 gap-4 p-4 z-0">
+  <main class="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- Left Column: Input and Formatted Output -->
+    <div class="flex flex-col gap-6">
+      
+      <section class="bg-white border border-line rounded-xl p-6 flex flex-col gap-4 shadow-sm">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-base font-bold text-ink">1. Raw Request</h2>
+          <p class="text-xs text-muted">Paste your raw JSON payload containing the nested SSP_REQ log.</p>
+        </div>
+        <textarea id="input-raw" class="w-full px-3 py-2 rounded-lg bg-white border border-line text-sm text-ink font-mono placeholder-muted focus:outline-none focus:border-grape focus:ring-2 focus:ring-grape/20 resize-y" rows="8" placeholder='{"message": "SSP_REQ", "log": "{...}"}' spellcheck="false"></textarea>
+        <div class="flex gap-3 justify-end">
+          <button id="btn-clear" class="px-4 py-2 rounded-lg bg-white border border-line hover:border-grape text-ink text-sm font-medium">Clear</button>
+          <button id="btn-process" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-medium">Process request</button>
+        </div>
+      </section>
+
+      <section class="bg-white border border-line rounded-xl p-6 flex flex-col gap-4 shadow-sm">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-col gap-1">
+            <h2 class="text-base font-bold text-ink">2. Formatted Output</h2>
+            <p class="text-xs text-muted">The extracted and prettified SSP_REQ payload.</p>
+          </div>
+          <button id="btn-download" class="text-sm font-medium text-grape hover:text-grape-hover opacity-40 cursor-not-allowed" disabled>Download .txt</button>
+        </div>
+        <div class="w-full h-64 overflow-auto rounded-lg bg-canvas border border-line p-4">
+          <pre id="output-formatted" class="font-mono text-xs text-ink whitespace-pre-wrap word-break-all">// Waiting for input...</pre>
+        </div>
+      </section>
+      
+    </div>
+
+    <!-- Right Column: Extractor and Search -->
+    <div class="flex flex-col h-full">
+      
+      <section class="bg-white border border-line rounded-xl flex flex-col h-full overflow-hidden shadow-sm">
+        <div class="p-6 pb-4 border-b border-line flex flex-col gap-4 shrink-0 bg-canvas">
+          <div class="flex flex-col gap-1">
+            <h2 class="text-base font-bold text-ink">3. Parameter Extractor</h2>
+            <p class="text-xs text-muted">A flat list of all nested keys and values. Search to quickly find and copy.</p>
+          </div>
+          <div class="relative">
+             <input type="text" id="input-search" class="w-full pl-10 pr-3 py-2 rounded-lg bg-white border border-line text-sm text-ink placeholder-muted focus:outline-none focus:border-grape focus:ring-2 focus:ring-grape/20" placeholder="Search by key or value..." disabled>
+             <svg class="w-4 h-4 text-muted absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"></path></svg>
+          </div>
+        </div>
         
-        <div class="w-full lg:w-5/12 flex flex-col gap-4">
-            
-            <!-- Editor INPUT -->
-            <div class="flex-1 flex flex-col glass-panel rounded-2xl p-4 shadow-2xl relative group">
-                <div class="flex items-center justify-between mb-3">
-                    <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                        Pegar Request Raw
-                    </label>
-                    <button id="clear-btn" class="text-xs text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        Limpiar
-                    </button>
-                </div>
-                <div class="editor-container flex-1 relative">
-                    <div id="input-editor"></div>
-                </div>
-            </div>
-
-            <!-- Botones de Acción (Centro) -->
-            <div class="flex gap-3 shrink-0">
-                <button id="format-btn" class="btn-glow flex-1 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-xl transition-all text-sm font-bold flex items-center justify-center gap-2 border border-indigo-400/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                    Procesar Request
-                </button>
-                
-                <button id="download-btn" class="btn-glow flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl transition-all text-sm font-semibold border border-zinc-700 hover:border-zinc-500 flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-400 group-hover:text-white"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    Descargar .txt
-                </button>
-            </div>
-
-            <!-- Editor OUTPUT -->
-            <div class="flex-1 flex flex-col glass-panel rounded-2xl p-4 shadow-2xl relative">
-                <label class="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-2 mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-                    SSP_REQ Formateado
-                </label>
-                <div class="editor-container flex-1 relative bg-black/40">
-                    <div id="output-editor"></div>
-                </div>
-            </div>
+        <div class="overflow-x-auto bg-white flex-1 max-h-[600px] overflow-y-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-canvas sticky top-0 z-10 border-b border-line">
+              <tr class="text-xs font-medium uppercase tracking-wide text-muted">
+                <th class="px-4 py-3 text-left w-1/3">Key</th>
+                <th class="px-4 py-3 text-left">Value</th>
+                <th class="px-4 py-3 text-right w-20">Action</th>
+              </tr>
+            </thead>
+            <tbody id="params-list" class="divide-y divide-line">
+              <!-- Empty state default -->
+              <tr id="empty-state">
+                <td colspan="3" class="px-4 py-12 text-center text-sm text-muted">
+                  No data extracted. Paste a request and click Process to view parameters.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </section>
 
-        <div class="w-full lg:w-7/12 flex flex-col glass-panel rounded-2xl shadow-2xl relative overflow-hidden flex-1 border border-white/10">
-            
-            <!-- Barra de Búsqueda Flotante -->
-            <div class="p-4 border-b border-white/5 bg-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0 backdrop-blur-md">
-                <div class="flex flex-col">
-                    <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-                        Extractor de Parámetros
-                    </h2>
-                    <p class="text-xs text-zinc-400 mt-1">Copia valores individuales al instante</p>
-                </div>
-                
-                <div class="relative w-full sm:w-72 group">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-indigo-400 transition-colors"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="search-param" placeholder="Buscar llave o valor..." class="w-full bg-[#09090b] border border-zinc-700/80 rounded-lg py-2 pl-9 pr-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all disabled:opacity-50 shadow-inner" disabled>
-                </div>
-            </div>
+    </div>
+  </main>
 
-            <!-- Lista Dinámica -->
-            <div id="params-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 relative scroll-smooth pb-12">
-                <!-- Estado Vacío Mejorado -->
-                <div class="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 p-8 text-center bg-gradient-to-b from-transparent to-black/20" id="empty-state">
-                    <div class="w-20 h-20 bg-zinc-800/50 rounded-full flex items-center justify-center mb-6 border border-zinc-700/50 shadow-inner">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-zinc-600"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-                    </div>
-                    <h3 class="text-zinc-300 font-semibold mb-2">Aún no hay datos</h3>
-                    <p class="text-sm max-w-xs text-zinc-500 leading-relaxed">Pega una request en el panel izquierdo y presiona procesar para extraer sus parámetros automáticamente.</p>
-                </div>
-            </div>
-            
-            <!-- Sombra difuminada inferior para indicar scroll -->
-            <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#18181b] to-transparent pointer-events-none"></div>
-        </div>
-    </main>
+  <div id="toast" class="hidden fixed top-4 right-4 bg-ink text-white text-sm px-4 py-3 rounded-lg shadow-lg z-50">Action completed successfully.</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            ace.config.set('basePath', 'https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/');
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Elements
+      const inputRaw = document.getElementById('input-raw');
+      const outputFormatted = document.getElementById('output-formatted');
+      const btnProcess = document.getElementById('btn-process');
+      const btnClear = document.getElementById('btn-clear');
+      const btnDownload = document.getElementById('btn-download');
+      const inputSearch = document.getElementById('input-search');
+      const paramsList = document.getElementById('params-list');
+      const emptyState = document.getElementById('empty-state');
+      const toast = document.getElementById('toast');
 
-            // Configuración del Editor de Entrada
-            const inputEditor = ace.edit("input-editor");
-            inputEditor.setTheme("ace/theme/tomorrow_night_eighties"); // Tema oscuro moderno
-            inputEditor.session.setMode("ace/mode/json");
-            inputEditor.setShowPrintMargin(false);
-            inputEditor.setOptions({
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "13px",
-                scrollPastEnd: 0.5,
-                tooltipFollowsMouse: false
-            });
-            
-            // Configuración del Editor de Salida
-            const outputEditor = ace.edit("output-editor");
-            outputEditor.setTheme("ace/theme/tomorrow_night_eighties");
-            outputEditor.session.setMode("ace/mode/json");
-            outputEditor.setReadOnly(true);
-            outputEditor.setShowPrintMargin(false);
-            outputEditor.setHighlightActiveLine(false);
-            outputEditor.$blockScrolling = Infinity;
-            outputEditor.setOptions({
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: "13px",
-                scrollPastEnd: 0.5
-            });
-            outputEditor.setValue("// Esperando proceso...", -1);
+      let currentParsedJSON = null;
 
-            // Elementos del DOM
-            const formatBtn = document.getElementById('format-btn');
-            const downloadBtn = document.getElementById('download-btn');
-            const clearBtn = document.getElementById('clear-btn');
-            const searchInput = document.getElementById('search-param');
-            const paramsList = document.getElementById('params-list');
-            const emptyState = document.getElementById('empty-state');
+      // Logic functions
+      function findSspReq(obj) {
+        if (!obj || typeof obj !== 'object') return null;
+        if (obj.message === "SSP_REQ" && obj.log) return obj;
+        
+        if (Array.isArray(obj)) {
+          for (let item of obj) {
+            const found = findSspReq(item);
+            if (found) return found;
+          }
+        } else {
+          for (let key in obj) {
+            const found = findSspReq(obj[key]);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
 
-            let currentParsedJSON = null;
-
-            function findSspReq(obj) {
-                if (!obj || typeof obj !== 'object') return null;
-                if (obj.message === "SSP_REQ" && obj.log) return obj;
-                
-                if (Array.isArray(obj)) {
-                    for (let item of obj) {
-                        const found = findSspReq(item);
-                        if (found) return found;
-                    }
-                } else {
-                    for (let key in obj) {
-                        const found = findSspReq(obj[key]);
-                        if (found) return found;
-                    }
-                }
-                return null;
+      function flattenJSON(data, prefix = '') {
+        let result = {};
+        for (let key in data) {
+          let newKey = prefix ? (Array.isArray(data) ? `${prefix}[${key}]` : `${prefix}.${key}`) : key;
+          if (data[key] !== null && typeof data[key] === 'object') {
+            if (Object.keys(data[key]).length === 0) {
+              result[newKey] = Array.isArray(data[key]) ? "[]" : "{}";
+            } else {
+              Object.assign(result, flattenJSON(data[key], newKey));
             }
+          } else {
+            result[newKey] = data[key];
+          }
+        }
+        return result;
+      }
 
-            function flattenJSON(data, prefix = '') {
-                let result = {};
-                for (let key in data) {
-                    let newKey = prefix ? (Array.isArray(data) ? `${prefix}[${key}]` : `${prefix}.${key}`) : key;
-                    if (data[key] !== null && typeof data[key] === 'object') {
-                        if (Object.keys(data[key]).length === 0) {
-                            result[newKey] = Array.isArray(data[key]) ? "[]" : "{}";
-                        } else {
-                            Object.assign(result, flattenJSON(data[key], newKey));
-                        }
-                    } else {
-                        result[newKey] = data[key];
-                    }
-                }
-                return result;
-            }
+      function showToast(message, isError = false) {
+        toast.textContent = message;
+        toast.className = `fixed top-4 right-4 text-white text-sm px-4 py-3 rounded-lg shadow-lg z-50 ${isError ? 'bg-danger' : 'bg-ink'}`;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+      }
 
-            function renderParams(flatData) {
-                emptyState.style.display = 'none';
-                searchInput.disabled = false;
-                searchInput.value = ''; 
-                paramsList.innerHTML = ''; 
-
-                const entries = Object.entries(flatData);
-                
-                if (entries.length === 0) {
-                    paramsList.innerHTML = '<div class="text-zinc-500 text-sm p-4 text-center mt-10">No se encontraron valores primitivos.</div>';
-                    return;
-                }
-
-                entries.forEach(([key, val]) => {
-                    const stringVal = String(val);
-                    
-                    const row = document.createElement('div');
-                    row.className = 'param-row param-card flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-[#121214] rounded-xl border border-white/5 group gap-3';
-                    row.dataset.key = key;
-                    row.dataset.val = stringVal;
-
-                    // Izquierda (Key)
-                    const keyDiv = document.createElement('div');
-                    keyDiv.className = 'text-[13px] text-indigo-300 font-mono break-all font-medium flex-1 pr-4';
-                    keyDiv.textContent = key;
-
-                    // Derecha (Valor + Botón)
-                    const rightDiv = document.createElement('div');
-                    rightDiv.className = 'flex items-center justify-between sm:justify-end gap-3 shrink-0 sm:max-w-[60%] w-full sm:w-auto bg-black/20 sm:bg-transparent rounded-lg p-2 sm:p-0 border border-white/5 sm:border-transparent';
-                    
-                    const valSpan = document.createElement('span');
-                    valSpan.className = 'text-[13px] text-emerald-400 font-mono truncate px-2';
-                    valSpan.textContent = stringVal;
-                    valSpan.title = stringVal; 
-
-                    const copyBtn = document.createElement('button');
-                    copyBtn.className = 'p-2 bg-zinc-800 hover:bg-indigo-600 rounded-lg text-zinc-400 hover:text-white transition-all shrink-0 flex items-center justify-center w-8 h-8 border border-zinc-700 hover:border-indigo-500 shadow-sm hover:shadow-[0_0_10px_rgba(99,102,241,0.5)]';
-                    copyBtn.title = "Copiar valor";
-                    copyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
-                    
-                    copyBtn.onclick = () => copyToClipboard(stringVal, copyBtn);
-
-                    rightDiv.appendChild(valSpan);
-                    rightDiv.appendChild(copyBtn);
-                    
-                    row.appendChild(keyDiv);
-                    row.appendChild(rightDiv);
-                    paramsList.appendChild(row);
-                });
-            }
-
-            function copyToClipboard(text, btnElement) {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.opacity = "0";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    
-                    const originalHTML = btnElement.innerHTML;
-                    const originalClass = btnElement.className;
-                    
-                    // Estado copiado (Éxito)
-                    btnElement.className = 'p-2 bg-emerald-500/20 text-emerald-400 rounded-lg shrink-0 flex items-center justify-center w-8 h-8 border border-emerald-500/50 shadow-[0_0_10px_rgba(52,211,153,0.3)] transition-all scale-110';
-                    btnElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-                    
-                    setTimeout(() => {
-                        btnElement.className = originalClass;
-                        btnElement.innerHTML = originalHTML;
-                    }, 1500);
-
-                } catch (error) {
-                    console.error('No se pudo copiar', error);
-                }
-                document.body.removeChild(textArea);
-            }
-
-            // Procesar Click
-            formatBtn.addEventListener('click', () => {
-                const rawText = inputEditor.getValue();
-                if (!rawText || rawText.trim() === "") {
-                    // Animación de error sutil en el editor
-                    document.querySelector('#input-editor').parentElement.style.borderColor = '#ef4444';
-                    setTimeout(() => document.querySelector('#input-editor').parentElement.style.borderColor = '', 1000);
-                    return;
-                }
-
-                try {
-                    const parsed = JSON.parse(rawText);
-                    const sspReq = findSspReq(parsed);
-                    
-                    if (sspReq && sspReq.log) {
-                        try {
-                            const parsedLog = JSON.parse(sspReq.log);
-                            currentParsedJSON = parsedLog;
-                            
-                            outputEditor.setValue(JSON.stringify(parsedLog, null, 4), -1);
-                            
-                            const flatJSON = flattenJSON(parsedLog);
-                            renderParams(flatJSON);
-                            
-                            downloadBtn.disabled = false;
-                            downloadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                            
-                            // Animación de éxito en el botón
-                            const originalText = formatBtn.innerHTML;
-                            formatBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Completado`;
-                            formatBtn.classList.replace('from-indigo-600', 'from-emerald-600');
-                            formatBtn.classList.replace('to-blue-600', 'to-teal-500');
-                            
-                            setTimeout(() => {
-                                formatBtn.innerHTML = originalText;
-                                formatBtn.classList.replace('from-emerald-600', 'from-indigo-600');
-                                formatBtn.classList.replace('to-teal-500', 'to-blue-600');
-                            }, 1500);
-
-                            return;
-                        } catch (e) {
-                            outputEditor.setValue("// Error al parsear el string 'log' interno.\n" + sspReq.log, -1);
-                        }
-                    } else {
-                        outputEditor.setValue("// No se encontró el objeto con 'message': 'SSP_REQ' en ninguna parte.", -1);
-                    }
-                } catch (error) {
-                    outputEditor.setValue("// ERROR: El texto ingresado no es un JSON válido.", -1);
-                }
-                
-                // Fallback reset
-                currentParsedJSON = null;
-                downloadBtn.disabled = true;
-                downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                paramsList.innerHTML = '';
-                emptyState.style.display = 'flex';
-                searchInput.disabled = true;
-                searchInput.value = '';
-            });
-
-            // Buscador
-            searchInput.addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
-                const rows = document.querySelectorAll('.param-row');
-                
-                rows.forEach(row => {
-                    const key = row.dataset.key.toLowerCase();
-                    const val = row.dataset.val.toLowerCase();
-                    if (key.includes(term) || val.includes(term)) {
-                        row.style.display = 'flex';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
-
-            // Descargar
-            downloadBtn.addEventListener('click', () => {
-                if (!currentParsedJSON) return;
-
-                const textToDownload = JSON.stringify(currentParsedJSON, null, 4);
-                const blob = new Blob([textToDownload], { type: "text/plain;charset=utf-8" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                
-                const date = new Date();
-                const timestamp = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${date.getHours().toString().padStart(2, '0')}${date.getMinutes().toString().padStart(2, '0')}`;
-                
-                a.href = url;
-                a.download = `ssp_req_${timestamp}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                
-                setTimeout(() => {
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                }, 0);
-            });
-
-            // Limpiar
-            clearBtn.addEventListener('click', () => {
-                inputEditor.setValue("", -1);
-                outputEditor.setValue("// Esperando proceso...", -1);
-                currentParsedJSON = null;
-                
-                downloadBtn.disabled = true;
-                downloadBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                
-                paramsList.innerHTML = '';
-                emptyState.style.display = 'flex';
-                searchInput.disabled = true;
-                searchInput.value = '';
-                
-                inputEditor.focus();
-            });
+      function renderParams(flatData) {
+        emptyState.style.display = 'none';
+        inputSearch.disabled = false;
+        inputSearch.value = ''; 
+        
+        // Clear previous rows
+        Array.from(paramsList.children).forEach(child => {
+          if (child.id !== 'empty-state') child.remove();
         });
-    </script>
+
+        const entries = Object.entries(flatData);
+        
+        if (entries.length === 0) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="3" class="px-4 py-8 text-center text-sm text-muted">No primitive values found in payload.</td>`;
+          paramsList.appendChild(tr);
+          return;
+        }
+
+        entries.forEach(([key, val]) => {
+          const stringVal = String(val);
+          
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-canvas param-row';
+          tr.dataset.search = (key + ' ' + stringVal).toLowerCase();
+
+          // Key cell
+          const tdKey = document.createElement('td');
+          tdKey.className = 'px-4 py-3 font-mono text-xs text-ink break-all font-medium align-top';
+          tdKey.textContent = key;
+
+          // Value cell
+          const tdVal = document.createElement('td');
+          tdVal.className = 'px-4 py-3 font-mono text-xs text-muted break-all align-top';
+          tdVal.textContent = stringVal;
+
+          // Action cell
+          const tdAction = document.createElement('td');
+          tdAction.className = 'px-4 py-3 text-right align-top';
+          
+          const copyBtn = document.createElement('button');
+          copyBtn.className = 'text-sm font-medium text-grape hover:text-grape-hover';
+          copyBtn.textContent = 'Copy';
+          copyBtn.onclick = () => {
+            copyToClipboard(stringVal);
+          };
+
+          tdAction.appendChild(copyBtn);
+          
+          tr.appendChild(tdKey);
+          tr.appendChild(tdVal);
+          tr.appendChild(tdAction);
+          paramsList.appendChild(tr);
+        });
+      }
+
+      function copyToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          showToast("Value copied to clipboard!");
+        } catch (error) {
+          showToast("Failed to copy value.", true);
+        }
+        document.body.removeChild(textArea);
+      }
+
+      btnProcess.addEventListener('click', () => {
+        const rawText = inputRaw.value;
+        if (!rawText || rawText.trim() === "") {
+          showToast("Please paste a JSON payload first.", true);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(rawText);
+          const sspReq = findSspReq(parsed);
+          
+          if (sspReq && sspReq.log) {
+            try {
+              const parsedLog = JSON.parse(sspReq.log);
+              currentParsedJSON = parsedLog;
+              
+              outputFormatted.textContent = JSON.stringify(parsedLog, null, 2);
+              
+              const flatJSON = flattenJSON(parsedLog);
+              renderParams(flatJSON);
+              
+              btnDownload.disabled = false;
+              btnDownload.classList.remove('opacity-40', 'cursor-not-allowed');
+              
+              showToast("Payload extracted successfully.");
+            } catch (e) {
+              outputFormatted.textContent = "// Error parsing internal 'log' string.\n" + sspReq.log;
+              showToast("Error parsing internal log string.", true);
+            }
+          } else {
+            outputFormatted.textContent = "// Could not find object with 'message': 'SSP_REQ' in the payload.";
+            showToast("No SSP_REQ payload found.", true);
+          }
+        } catch (error) {
+          outputFormatted.textContent = "// ERROR: Input is not a valid JSON string.";
+          showToast("Invalid JSON format.", true);
+        }
+      });
+
+      inputSearch.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('.param-row');
+        
+        rows.forEach(row => {
+          if (row.dataset.search.includes(term)) {
+            row.style.display = 'table-row';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      });
+
+      btnDownload.addEventListener('click', () => {
+        if (!currentParsedJSON) return;
+
+        const textToDownload = JSON.stringify(currentParsedJSON, null, 2);
+        const blob = new Blob([textToDownload], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        const date = new Date();
+        const timestamp = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}_${date.getHours().toString().padStart(2, '0')}${date.getMinutes().toString().padStart(2, '0')}`;
+        
+        a.href = url;
+        a.download = `ssp_req_${timestamp}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          showToast("File downloaded.");
+        }, 0);
+      });
+
+      btnClear.addEventListener('click', () => {
+        inputRaw.value = "";
+        outputFormatted.textContent = "// Waiting for input...";
+        currentParsedJSON = null;
+        
+        btnDownload.disabled = true;
+        btnDownload.classList.add('opacity-40', 'cursor-not-allowed');
+        
+        Array.from(paramsList.children).forEach(child => {
+          if (child.id !== 'empty-state') child.remove();
+        });
+        emptyState.style.display = 'table-row';
+        
+        inputSearch.disabled = true;
+        inputSearch.value = '';
+        inputRaw.focus();
+      });
+    });
+  </script>
 </body>
 </html>
